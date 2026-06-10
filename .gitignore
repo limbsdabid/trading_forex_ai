@@ -1,0 +1,19 @@
+# Ignore virtual environment
+venv/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore logs
+logs/
+*.log
+
+# Ignore config files with credentials
+config.json
+
+# Ignore environment setup files (optional)
+.env
+
+# Ignore Jupyter notebooks checkpoints (if you use notebooks later)
+.ipynb_checkpoints/
