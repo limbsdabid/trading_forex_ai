@@ -18,4 +18,4 @@ config.json
 # Ignore Jupyter notebooks checkpoints (if you use notebooks later)
 .ipynb_checkpoints/
 data/check_data.py
-data/EURUSD_H1.csv
+*.csv
