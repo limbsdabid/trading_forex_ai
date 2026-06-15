@@ -1,21 +1,19 @@
-# Fetch data from all available symbols and save to CSV ______________________________________
-# data_fetch.py
 import os
-import json
-import pandas as pd
-import MetaTrader5 as mt5
 from datetime import datetime, timedelta, timezone
 
-DATA_DIR = "data"
+import MetaTrader5 as mt5
+import pandas as pd
+
+from config_loader import DATA_DIR, load_config
+
+
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# load credentials from config.json __________________________________________________________
-with open("config.json") as f:
-    cfg = json.load(f)
-
+cfg = load_config()
 LOGIN = cfg["login"]
 PASSWORD = cfg["password"]
 SERVER = cfg["server"]
+
 
 def initialize_mt5():
     if not mt5.initialize():
@@ -23,39 +21,44 @@ def initialize_mt5():
     if not mt5.login(LOGIN, PASSWORD, SERVER):
         raise RuntimeError(f"MT5 login failed: {mt5.last_error()}")
 
+
 def shutdown_mt5():
     mt5.shutdown()
 
-# Fetch candles for a symbol and timeframe, return as DataFrame ______________________________
+
 def fetch_candles(symbol, timeframe=mt5.TIMEFRAME_H1, start=None, end=None):
     rates = mt5.copy_rates_range(symbol, timeframe, start, end)
     if rates is None or len(rates) == 0:
         return pd.DataFrame()
+
     df = pd.DataFrame(rates)
-    df['time'] = pd.to_datetime(df['time'], unit='s')
-    df['symbol'] = symbol
-    return df[['symbol','time','open','high','low','close','tick_volume','spread','real_volume']]
+    df["time"] = pd.to_datetime(df["time"], unit="s")
+    df["symbol"] = symbol
+    return df[
+        ["symbol", "time", "open", "high", "low", "close", "tick_volume", "spread", "real_volume"]
+    ]
+
 
 def save_or_append(symbol, timeframe_label, new_df):
     filename = os.path.join(DATA_DIR, f"{symbol}_{timeframe_label}.csv")
     if os.path.exists(filename):
-        old = pd.read_csv(filename, parse_dates=['time'])
+        old = pd.read_csv(filename, parse_dates=["time"])
         combined = pd.concat([old, new_df], ignore_index=True)
-        combined.drop_duplicates(subset=['symbol','time'], inplace=True)
-        combined.sort_values(by='time', inplace=True)
+        combined.drop_duplicates(subset=["symbol", "time"], inplace=True)
+        combined.sort_values(by="time", inplace=True)
         combined.to_csv(filename, index=False)
         print(f"Appended {len(new_df)} rows to {filename} (now {len(combined)} rows).")
     else:
-        new_df.sort_values(by='time', inplace=True)
+        new_df.sort_values(by="time", inplace=True)
         new_df.to_csv(filename, index=False)
         print(f"Saved {len(new_df)} rows to new file {filename}.")
 
-# Incrementally update data for a symbol and timeframe
+
 def incremental_update(symbol, timeframe=mt5.TIMEFRAME_H1, timeframe_label="H1", fetch_chunk_days=365):
     filename = os.path.join(DATA_DIR, f"{symbol}_{timeframe_label}.csv")
     if os.path.exists(filename):
-        existing = pd.read_csv(filename, parse_dates=['time'])
-        last_time = existing['time'].max()
+        existing = pd.read_csv(filename, parse_dates=["time"])
+        last_time = existing["time"].max()
         start_time = last_time + timedelta(seconds=1)
         end_time = datetime.now(timezone.utc)
     else:
@@ -77,6 +80,7 @@ def incremental_update(symbol, timeframe=mt5.TIMEFRAME_H1, timeframe_label="H1",
     else:
         print("No new data fetched.")
 
+
 if __name__ == "__main__":
     initialize_mt5()
     try:
@@ -91,7 +95,7 @@ if __name__ == "__main__":
             symbol,
             timeframe=timeframe,
             start=start_date,
-            end=end_date
+            end=end_date,
         )
 
         if df.empty:
@@ -99,9 +103,8 @@ if __name__ == "__main__":
         else:
             save_or_append(symbol, timeframe_label, df)
 
-            print("Patch first candle:", df['time'].min())
-            print("Patch last candle:", df['time'].max())
+            print("Patch first candle:", df["time"].min())
+            print("Patch last candle:", df["time"].max())
             print("Patch rows:", len(df))
-
     finally:
         shutdown_mt5()
